@@ -205,7 +205,7 @@ var Adb = class {
   }
   shell(command) {
     return __async(this, null, function* () {
-      return yield this.exec(`shell '${command}'`);
+      return yield this.exec(`shell ${command}`);
     });
   }
   reboot() {
@@ -240,9 +240,8 @@ var Adb = class {
         silent: !this.outputOptions.hasVerbose,
         prefix: "ADB"
       });
-      let result = "";
       try {
-        yield executePromiseWithTimeout(
+        const result = yield executePromiseWithTimeout(
           this.TIMEOUT,
           new Promise((resolve, reject) => {
             let stdout = "";
@@ -262,7 +261,7 @@ var Adb = class {
                 logger.log(
                   `command exited with code ${code}: ${stdout} ${stdout}`
                 );
-                resolve(stdout.trim());
+                resolve(stdout);
               }
             });
             stream.on("error", (err) => {
@@ -273,7 +272,7 @@ var Adb = class {
         );
         return result;
       } catch (error) {
-        stream.disconnect();
+        stream == null ? void 0 : stream.disconnect();
         throw error;
       }
     });
@@ -288,7 +287,8 @@ var Adb = class {
       logger.log(`Executing command: adb ${fullArgs.join(" ")}`);
       const adbProcess = spawn(
         this.ADB_PATH,
-        fullArgs
+        fullArgs,
+        { shell: true }
       );
       const result = yield this.resolveStream(adbProcess);
       return result;
@@ -643,10 +643,9 @@ var AdbClient = class extends Adb {
         return [];
       }
       const devicesList = devices.split("\n").slice(1);
-      const devicesMap = devicesList.map((device) => {
+      const devicesMap = devicesList.filter((i) => i.length > 2).map((device) => {
         const [serial, _, ...rest] = device.split("	").filter(Boolean);
         const model = rest.join(" ");
-        console.log(model);
         const adbDeviceClient = new AdbDeviceClient(serial, {
           path: this.ADB_PATH,
           timeout: this.TIMEOUT
