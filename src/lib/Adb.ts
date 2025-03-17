@@ -84,7 +84,6 @@ export class Adb {
         this.TIMEOUT,
         new Promise((resolve, reject) => {
           let stdout = "";
-          let stderr = "";
 
           stream.stdout.on("data", (data) => {
             stdout += data.toString();
@@ -92,22 +91,19 @@ export class Adb {
 
           stream.stderr.on("data", (data) => {
             if (
-              stream.spawnargs.length > 1 &&
-              stream.spawnargs[1] === "start-server"
+              stream.spawnargs.length > 1 
             ) {
               stdout += data.toString();
-            } else {
-              stderr += data.toString();
             }
           });
 
           stream.on("close", (code) => {
             if (code !== 0) {
-              logger.warn(`command exited with code ${code}: ${stderr}`);
-              reject(new Error(`command failed with code ${code}: ${stderr}`));
+              logger.warn(`command exited with code ${code}: ${stdout}`);
+              reject(new Error(`command failed with code ${code}: ${stdout}`));
             } else {
               logger.log(
-                `command exited with code ${code}: ${stdout} ${stderr}`
+                `command exited with code ${code}: ${stdout} ${stdout}`
               );
               resolve(stdout.trim());
             }
