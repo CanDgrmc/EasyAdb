@@ -1,0 +1,41 @@
+{
+  "name": "@4lpha/easyadb",
+  "version": "0.0.1",
+  "description": "Adb Kit",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CanDgrmc/EasyAdb.git"
+  },
+  "scripts": {
+    "test": "mocha --require ts-node/register test/*.ts",
+    "dev": "ts-node src/index.ts",
+    "dev:watch": "node --watch --experimental-strip-types --env-file=.env src/index.ts",
+    "build": "tsup",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
+    "start": "node ./build/index.js"
+  },
+  "keywords": [
+    "Adb"
+  ],
+  "author": "Can Doğramacı",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/chai": "^5.2.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.13.10",
+    "@typescript-eslint/eslint-plugin": "^8.26.1",
+    "@typescript-eslint/parser": "^8.26.1",
+    "chai": "^5.2.0",
+    "eslint-config-prettier": "^10.1.1",
+    "mocha": "^11.1.0",
+    "ts-node": "^10.9.2",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2"
+  }
+}

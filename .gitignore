@@ -1,0 +1,5 @@
+test
+node_modules
+*lock.json
+*.config.js
+.DS_Store
