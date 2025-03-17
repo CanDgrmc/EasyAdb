@@ -46,8 +46,9 @@ export class Adb {
   }
 
   async shell(command: string): Promise<string | null> {
-    return await this.exec(`shell '${command}'`);
+    return await this.exec(`shell ${command}`);
   }
+
 
   async reboot(): Promise<void> {
     await this.exec(`reboot`);
@@ -77,10 +78,9 @@ export class Adb {
       silent: !this.outputOptions.hasVerbose,
       prefix: "ADB",
     });
-    let result = "";
 
     try {
-      await executePromiseWithTimeout(
+      const result:string = await executePromiseWithTimeout(
         this.TIMEOUT,
         new Promise((resolve, reject) => {
           let stdout = "";
@@ -105,7 +105,7 @@ export class Adb {
               logger.log(
                 `command exited with code ${code}: ${stdout} ${stdout}`
               );
-              resolve(stdout.trim());
+              resolve(stdout);
             }
           });
 
@@ -118,7 +118,7 @@ export class Adb {
 
       return result;
     } catch (error) {
-      stream.disconnect();
+      stream?.disconnect();
       throw error;
     }
   }
@@ -137,7 +137,7 @@ export class Adb {
 
     const adbProcess: ChildProcessWithoutNullStreams = spawn(
       this.ADB_PATH,
-      fullArgs
+      fullArgs, {shell: true}
     );
 
     const result = await this.resolveStream(adbProcess);

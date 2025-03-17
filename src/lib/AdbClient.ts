@@ -27,10 +27,9 @@ export class AdbClient extends Adb implements IAdbClient {
     }
 
     const devicesList = devices.split("\n").slice(1);
-    const devicesMap = devicesList.map((device) => {
+    const devicesMap = devicesList.filter(i => i.length > 2).map((device) => {
       const [serial, _, ...rest] = device.split("\t").filter(Boolean);
       const model = rest.join(" ");
-      console.log(model);
       const adbDeviceClient = new AdbDeviceClient(serial, {
         path: this.ADB_PATH,
         timeout: this.TIMEOUT,
