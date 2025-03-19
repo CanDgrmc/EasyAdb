@@ -1,6 +1,10 @@
 import fs, { ReadStream } from "fs";
 import type {
   CacheEntry,
+  DeviceControlKeyCodeInputs,
+  DeviceControlSwipeInputs,
+  DeviceControlTapInputs,
+  DeviceControlTextInputs,
   DeviceMemory,
   StorageInfo,
 } from "../types/device/DeviceProps";
@@ -28,8 +32,18 @@ const COMMANDS = Object.freeze({
   screenState: 'dumpsys power | grep "Display Power" | grep -oE "(ON|OFF)"',
   toggleScreen: "input keyevent 26",
   setHomeApp: "cmd package set-home-activity",
-  setSharedPref: `adb shell 'am broadcast -a $app.sp.PUT --es key $key --es value $val'`,
-  removeSharedPref: `adb shell 'am broadcast -a $app.sp.CLEAR --es key $key --es value $val'`,
+  setSharedPref: `'am broadcast -a $app.sp.PUT --es key $key --es value $val'`,
+  removeSharedPref: `'am broadcast -a $app.sp.CLEAR --es key $key --es value $val'`,
+  getSharedPref: `'am broadcast -a $app.sp.GET --es key $key'`,
+  getSharedPrefAll: `'am broadcast -a $app.sp.GETALL'`,
+  getSharedPrefClear: `'am broadcast -a $app.sp.CLEARALL'`,
+  getSharedPrefClearAll: `'am broadcast -a $app.sp.CLEARALL'`,
+  controls: {
+    tap: `input tap $deviceX $deviceY`,
+    swipe: `input swipe $deviceX1 $deviceY1 $deviceX2 $deviceY2`,
+    text: `input text '$text'`,
+    key: `input keyevent $keycode`,
+  },
 });
 
 export class DeviceClient {
@@ -285,5 +299,124 @@ export class DeviceClient {
       command += " --ez retart true";
     }
     await this.deviceClient.shell(command);
+  }
+
+  public async getSharedConfig(
+    fullAppName: string,
+    key: string
+  ): Promise<string | null> {
+    const command = COMMANDS.getSharedPref
+      .replace("$app", fullAppName)
+      .replace("$key", key);
+    return this.deviceClient.shell(command);
+  }
+  public async getAllSharedConfig(fullAppName: string): Promise<string | null> {
+    const command = COMMANDS.getSharedPrefAll.replace("$app", fullAppName);
+    return this.deviceClient.shell(command);
+  }
+  public async clearAllSharedConfig(
+    fullAppName: string
+  ): Promise<string | null> {
+    const command = COMMANDS.getSharedPrefClearAll.replace("$app", fullAppName);
+    return this.deviceClient.shell(command);
+  }
+  public async clearSharedConfig(
+    fullAppName: string,
+    key: string
+  ): Promise<string | null> {
+    const command = COMMANDS.getSharedPrefClear
+      .replace("$app", fullAppName)
+      .replace("$key", key);
+    return this.deviceClient.shell(command);
+  }
+
+  /**
+   * Controls device interactions through various input methods.
+   *
+   * @async
+   * @param {string} action - Type of control action to perform: "tap", "swipe", "text", or "key".
+   * @param {DeviceControlTapInputs|DeviceControlSwipeInputs|DeviceControlTextInputs|DeviceControlKeyCodeInputs} data - Parameters for the specified action.
+   * @param {DeviceControlTapInputs} data - For "tap" action: contains x, y coordinates and scaling factors.
+   * @param {DeviceControlSwipeInputs} data - For "swipe" action: contains start/end coordinates, scaling factors and duration.
+   * @param {DeviceControlTextInputs} data - For "text" action: contains text to input.
+   * @param {DeviceControlKeyCodeInputs} data - For "key" action: contains keycode to press.
+   * @returns {Promise<void>} - Promise that resolves when the control action completes.
+   *
+   * @see {@link https://developer.android.com/reference/android/view/KeyEvent} for keycode reference documentation.
+   *
+   * @example
+   * // Tap at position (100, 200) with scaling
+   * await control("tap", { x: 100, y: 200, scaleX: 1.5, scaleY: 1.5 });
+   *
+   * // Swipe from (100, 200) to (300, 400)
+   * await control("swipe", {
+   *   x: 100, y: 200, x2: 300, y2: 400,
+   *   scaleX: 1.0, scaleY: 1.0, duration: 300
+   * });
+   *
+   * // Input text
+   * await control("text", { text: "Hello world" });
+   *
+   * // Press a key by keycode
+   * await control("key", { keycode: "4" });
+   */
+  public async control(
+    action: "tap" | "swipe" | "text" | "key",
+    data:
+      | DeviceControlTapInputs
+      | DeviceControlTextInputs
+      | DeviceControlKeyCodeInputs
+      | DeviceControlSwipeInputs
+  ) {
+    switch (action) {
+      case "tap":
+        const tapActionInput: DeviceControlTapInputs =
+          data as DeviceControlTapInputs;
+        await this.deviceClient.shell(
+          COMMANDS.controls.tap
+            .replace("$deviceX", `${tapActionInput.x * tapActionInput.scaleX}`)
+            .replace("$deviceY", `${tapActionInput.y * tapActionInput.scaleY}`)
+        );
+        break;
+      case "swipe":
+        const swipeActionInput: DeviceControlSwipeInputs =
+          data as DeviceControlSwipeInputs;
+        await this.deviceClient.shell(
+          COMMANDS.controls.swipe
+            .replace(
+              "$deviceX1",
+              `${Math.round(swipeActionInput.x * swipeActionInput.scaleX)}`
+            )
+            .replace(
+              "$deviceY1",
+              `${Math.round(swipeActionInput.y * swipeActionInput.scaleY)}`
+            )
+            .replace(
+              "$deviceX2",
+              `${Math.round(swipeActionInput.x2 * swipeActionInput.scaleX)}`
+            )
+            .replace(
+              "$deviceY2",
+              `${Math.round(swipeActionInput.y2 * swipeActionInput.scaleY)}`
+            )
+        );
+        break;
+      case "text":
+        const textActionInput: DeviceControlTextInputs =
+          data as DeviceControlTextInputs;
+
+        await this.deviceClient.shell(
+          COMMANDS.controls.text.replace("$text", textActionInput.text)
+        );
+        break;
+      case "key":
+        const keyCodeActionInput: DeviceControlKeyCodeInputs =
+          data as DeviceControlKeyCodeInputs;
+
+        await this.deviceClient.shell(
+          COMMANDS.controls.key.replace("$keycode", keyCodeActionInput.keycode)
+        );
+        break;
+    }
   }
 }
