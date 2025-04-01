@@ -17,7 +17,8 @@ A TypeScript library that provides a clean API for interacting with Android devi
 ## Installation
 
 ```bash
-npm install easy-adb
+npm install @4lpha/easyadb
+
 ```
 
 ## Prerequisites
