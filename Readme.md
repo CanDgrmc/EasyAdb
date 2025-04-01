@@ -31,7 +31,7 @@ npm install @4lpha/easyadb
 ### Connecting to a Device
 
 ```typescript
-import { AdbClient } from "easy-adb";
+import { AdbClient } from "@4lpha/easyadb";
 
 // Create an ADB client
 const adb = new AdbClient();
