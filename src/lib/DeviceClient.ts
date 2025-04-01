@@ -58,6 +58,11 @@ export class DeviceClient {
     this.cache = new Map<string, CacheEntry<any>>();
   }
 
+  /**
+   *
+   * @param key
+   * @returns
+   */
   private getCached<T>(key: string): T | null {
     const cached = this.cache.get(key);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
@@ -66,10 +71,19 @@ export class DeviceClient {
     return null;
   }
 
+  /**
+   *
+   * @param key
+   * @param value
+   */
   private setCached(key: string, value: any): void {
     this.cache.set(key, { value, timestamp: Date.now() });
   }
 
+  /**
+   *
+   * @returns {string|null} device name
+   */
   public async getName(): Promise<string | null> {
     const cached = this.getCached<string>("name");
     if (cached) return cached;
@@ -81,6 +95,14 @@ export class DeviceClient {
     return result;
   }
 
+  /**
+   * Retrieves the device's memory information
+   * @returns {Promise<DeviceMemory | null>} Object containing memory information:
+   *   - totalMemory: Total memory in KB
+   *   - memFree: Free memory in KB
+   *   - memUsed: Used memory in KB
+   * @returns {null} If unable to retrieve memory information
+   */
   public async getDeviceMemory(): Promise<DeviceMemory | null> {
     const cached = this.getCached<DeviceMemory>("memory");
     if (cached) return cached;
@@ -106,6 +128,17 @@ export class DeviceClient {
     return memoryInfo;
   }
 
+  /**
+   * Retrieves storage information for all mounted filesystems on the device
+   * @returns {Promise<StorageInfo[] | null>} Array of storage information objects:
+   *   - Path: Filesystem path
+   *   - kBlock: Size in blocks
+   *   - Used: Used space in bytes
+   *   - Available: Available space in bytes
+   *   - UsePercentage: Usage percentage
+   *   - MountedOn: Mount point location
+   * @returns {null} If unable to retrieve storage information
+   */
   public async getStorage(): Promise<StorageInfo[] | null> {
     const cached = this.getCached<StorageInfo[]>("storage");
     if (cached) return cached;
@@ -136,6 +169,20 @@ export class DeviceClient {
     return storage;
   }
 
+  /**
+   * Retrieves device properties
+   * @param {string[]} [props] - Optional array of specific property names to retrieve
+   * @returns {Promise<string | { [key: string]: string } | null>}
+   *   - If props parameter is provided: Object with requested property key-value pairs
+   *   - If props parameter is not provided: Raw string containing all properties
+   *   - null if unable to retrieve properties
+   * @example
+   * // Get all properties
+   * const allProps = await getAllProps();
+   *
+   * // Get specific properties
+   * const specificProps = await getAllProps(['ro.product.model', 'ro.build.version.sdk']);
+   */
   public async getAllProps(
     props?: string[]
   ): Promise<string | { [key: string]: string } | null> {
@@ -158,70 +205,158 @@ export class DeviceClient {
     return result;
   }
 
+  /**
+   * Returns the unique identifier of the connected device
+   * @returns {string} The device ID
+   */
   public getDeviceId(): string {
     return this.id;
   }
 
+  /**
+   *
+   * @returns {string|null} device name
+   */
+  /**
+   * Retrieves the name of the connected Android device
+   * @returns {Promise<string | null>} The device name if available, null otherwise
+   */
+  public async getDeviceName(): Promise<string | null> {
+    return this.deviceClient.shell(COMMANDS.deviceName);
+  }
+
+  /**
+   * Gets the Android OS version of the connected device
+   * @returns {Promise<string | null>} The Android version if available, null otherwise
+   */
   public async getAndroidVersion(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.androidVersion);
   }
 
+  /**
+   * Checks the current state of the device's screen
+   * @returns {Promise<string | null>} The screen state if available, null otherwise
+   */
   public async getScreenState(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.screenState);
   }
 
+  /**
+   * Retrieves the screen resolution of the connected device
+   * @returns {Promise<string | null>} The screen resolution if available, null otherwise
+   */
   public async getScreenResolution(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.resolution);
   }
 
+  /**
+   * Gets the manufacturer name of the connected device
+   * @returns {Promise<string | null>} The manufacturer name if available, null otherwise
+   */
   public async getManufacturer(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.manufacturer);
   }
 
+  /**
+   * Retrieves the brand name of the connected device
+   * @returns {Promise<string | null>} The brand name if available, null otherwise
+   */
   public async getBrand(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.brand);
   }
 
+  /**
+   * Retrieves the SDK version of the connected device
+   * @returns {Promise<string | null>} The SDK version if available, null otherwise
+   */
   public async getSDKVersion(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.SDKVersion);
   }
 
+  /**
+   * Gets the screen density of the connected device
+   * @returns {Promise<string | null>} The screen density if available, null otherwise
+   */
   public async getScreenDensity(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.density);
   }
 
+  /**
+   * Retrieves the system language setting of the device
+   * @returns {Promise<string | null>} The system language if available, null otherwise
+   */
   public async getSystemLanguage(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.language);
   }
 
+  /**
+   * Gets the locale settings of the device
+   * @returns {Promise<string | null>} The locale if available, null otherwise
+   */
   public async getLocale(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.locale);
   }
 
+  /**
+   * Retrieves the model name of the connected device
+   * @returns {Promise<string | null>} The device model if available, null otherwise
+   */
   public async getModel(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.model);
   }
 
+  /**
+   * Disables the launcher on the device
+   * @returns {Promise<string | null>} Result of the operation
+   */
   public async disableLauncher(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.disableLauncher);
   }
 
+  /**
+   * Enables the launcher on the device
+   * @returns {Promise<string | null>} Result of the operation
+   */
   public async enableLauncher(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.enableLauncher);
   }
 
+  /**
+   * Enables the system UI on the device
+   * @returns {Promise<string | null>} Result of the operation
+   */
   public async enableSystemUI(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.enableSystemUI);
   }
 
+  /**
+   * Disables the system UI on the device
+   * @returns {Promise<string | null>} Result of the operation
+   */
   public async disableSystemUI(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.disableSystemUI);
   }
 
+  /**
+   * Pulls a file from the device to the local system
+   * @param {string} path - The path of the file on the device
+   * @param {string} to - The destination path on the local system
+   * @returns {Promise<void>}
+   */
   public async pull(path: string, to: string): Promise<void> {
     return this.deviceClient.pull(path, to);
   }
 
+  /**
+   * Pushes a file or stream to the device
+   * @param {string | ReadStream} path - The local file path or ReadStream to push
+   * @param {string} remotePath - The destination path on the device
+   * @param {Function} [onProgress] - Optional callback for progress updates
+   * @param {number} onProgress.transferred - The number of bytes transferred
+   * @param {number} [onProgress.total] - The total number of bytes to transfer
+   * @returns {Promise<boolean>} True if the file was successfully installed
+   * @throws {Error} If the local file path doesn't exist
+   */
   public async push(
     path: string | ReadStream,
     remotePath: string,
@@ -239,32 +374,69 @@ export class DeviceClient {
     return !!installed;
   }
 
+  /**
+   * Toggles the device's screen state (on/off)
+   * @returns {Promise<string | null>} Result of the screen toggle operation
+   */
   public async toggleScreen(): Promise<string | null> {
     return this.deviceClient.shell(COMMANDS.toggleScreen);
   }
 
+  /**
+   * Sets the default home application (launcher)
+   * @param {string} app - Package name of the app to set as home
+   * @returns {Promise<string | null>} Result of the operation
+   */
   public async setHomeApp(app: string): Promise<string | null> {
     return this.deviceClient.shell(`${COMMANDS.setHomeApp} ${app}`);
   }
 
+  /**
+   * Clears the cache of a specified application
+   * @param {string} app - Package name of the app to clear cache
+   * @returns {Promise<string | null>} Result of the cache clearing operation
+   */
   public async clearCache(app: string): Promise<string | null> {
     return this.deviceClient.shell(`pm clear ${app}`);
   }
 
+  /**
+   * Lists files and directories in the specified path on the device
+   * @param {string} [path="/"] - Directory path to list contents from
+   * @returns {Promise<string[]>} Array of file/directory names
+   */
   public async ls(path?: string): Promise<string[]> {
     const paths = await this.deviceClient.shell(`ls ${path || "/"}`);
     if (!paths) return [];
     return paths.split("\n");
   }
 
+  /**
+   * Reboots the device
+   * @returns {Promise<void>}
+   */
   public async reboot(): Promise<void> {
     await this.deviceClient.reboot();
   }
 
+  /**
+   * Uninstalls an application from the device
+   * @param {string} packagename - Package name of the app to uninstall
+   * @returns {Promise<void>}
+   */
   public async uninstall(packagename: string): Promise<void> {
     await this.deviceClient.uninstall(packagename);
   }
 
+  /**
+   * Sets a shared preference configuration value for an application
+   * @param {string} fullAppName - Full package name of the application
+   * @param {string} key - Preference key to set
+   * @param {any} value - Value to set for the preference
+   * @param {Object} props - Additional properties
+   * @param {boolean} props.restart - Whether to restart the app after setting
+   * @returns {Promise<void>}
+   */
   public async putSharedConfig(
     fullAppName: string,
     key: string,
@@ -283,6 +455,15 @@ export class DeviceClient {
     await this.deviceClient.shell(command);
   }
 
+  /**
+   * Removes a shared preference configuration value from an application
+   * @param {string} fullAppName - Full package name of the application
+   * @param {string} key - Preference key to remove
+   * @param {any} value - Value to remove
+   * @param {Object} props - Additional properties
+   * @param {boolean} props.restart - Whether to restart the app after removal
+   * @returns {Promise<void>}
+   */
   public async removeSharedConfig(
     fullAppName: string,
     key: string,
@@ -301,6 +482,12 @@ export class DeviceClient {
     await this.deviceClient.shell(command);
   }
 
+  /**
+   * Retrieves a shared preference configuration value from an application
+   * @param {string} fullAppName - Full package name of the application
+   * @param {string} key - Preference key to retrieve
+   * @returns {Promise<string | null>} The preference value if found, null otherwise
+   */
   public async getSharedConfig(
     fullAppName: string,
     key: string
@@ -310,16 +497,35 @@ export class DeviceClient {
       .replace("$key", key);
     return this.deviceClient.shell(command);
   }
+
+  /**
+   * Retrieves all shared preference configuration values from an application
+   * @param {string} fullAppName - Full package name of the application
+   * @returns {Promise<string | null>} All preference values if found, null otherwise
+   */
   public async getAllSharedConfig(fullAppName: string): Promise<string | null> {
     const command = COMMANDS.getSharedPrefAll.replace("$app", fullAppName);
     return this.deviceClient.shell(command);
   }
+
+  /**
+   * Clears all shared preference configurations for an application
+   * @param {string} fullAppName - Full package name of the application
+   * @returns {Promise<string | null>} Result of the clear operation
+   */
   public async clearAllSharedConfig(
     fullAppName: string
   ): Promise<string | null> {
     const command = COMMANDS.getSharedPrefClearAll.replace("$app", fullAppName);
     return this.deviceClient.shell(command);
   }
+
+  /**
+   * Clears a specific shared preference configuration for an application
+   * @param {string} fullAppName - Full package name of the application
+   * @param {string} key - Preference key to clear
+   * @returns {Promise<string | null>} Result of the clear operation
+   */
   public async clearSharedConfig(
     fullAppName: string,
     key: string
