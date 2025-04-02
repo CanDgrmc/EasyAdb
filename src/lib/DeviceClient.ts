@@ -10,6 +10,7 @@ import type {
 } from "../types/device/DeviceProps";
 import { parseProperty } from "../utils/StrHelper";
 import type { AdbDeviceClient } from "./AdbDeviceClient";
+import { ChildProcessWithoutNullStreams } from "child_process";
 
 const COMMANDS = Object.freeze({
   deviceName: "getprop ro.product.name",
@@ -44,6 +45,46 @@ const COMMANDS = Object.freeze({
     text: `input text '$text'`,
     key: `input keyevent $keycode`,
   },
+  screenshot: "screencap -p $path",
+
+  mv: "mv $path $dest",
+  cp: "cp $path $dest",
+  chmod: "chmod $mode $path",
+  chown: "chown $owner $path",
+  chgrp: "chgrp $group $path",
+  install: "pm install $path",
+  uninstall: "pm uninstall $path",
+  clearData: "pm clear $path",
+  forceStop: "am force-stop $path",
+  kill: "am kill $path",
+  start: "am start $path",
+  startForeground: "am start -W $path",
+  startService: "am startservice $path",
+  stopService: "am stopservice $path",
+  broadcast: "am broadcast $path",
+  listPackages: "pm list packages",
+  listPackagesFull: "pm list packages -f",
+  listPackagesAllUsers: "pm list packages -a",
+  listPackagesAllUsersFull: "pm list packages -a -f",
+  listPackagesUser: "pm list packages --user $user",
+  listPackagesUserFull: "pm list packages --user $user -f",
+  listPackagesAllUsersUser: "pm list packages -a --user $user",
+  listPackagesAllUsersUserFull: "pm list packages -a --user $user -f",
+  listPermissions: "pm list permissions",
+  listPermissionsGroups: "pm list permission-groups",
+  listPermissionsAll: "pm list permissions -a",
+  listPermissionsAllGroups: "pm list permission-groups -a",
+  listPermissionsUser: "pm list permissions --user $user",
+  listPermissionsGroupsUser: "pm list permission-groups --user $user",
+  listPermissionsAllUser: "pm list permissions -a --user $user",
+  listPermissionsAllGroupsUser: "pm list permission-groups -a --user $user",
+  listFeatures: "pm list features",
+  listFeaturesUser: "pm list features --user $user",
+  listLibraries: "pm list libraries",
+  listLibrariesUser: "pm list libraries --user $user",
+  listUsers: "pm list users",
+  listUsersUser: "pm list users --user $user",
+  listUsersUserFull: "pm list users --user $user -f",
 });
 
 export class DeviceClient {
@@ -403,10 +444,20 @@ export class DeviceClient {
   /**
    * Lists files and directories in the specified path on the device
    * @param {string} [path="/"] - Directory path to list contents from
+   * @param {object|undefined} opts Optional ls properties
+   * @param {boolean|undefined} opts.size Display size of files
+   * @param {boolean|undefined} opts.recursive Display folders recursively
    * @returns {Promise<string[]>} Array of file/directory names
    */
-  public async ls(path?: string): Promise<string[]> {
-    const paths = await this.deviceClient.shell(`ls ${path || "/"}`);
+  public async ls(
+    path?: string,
+    opts?: { size?: boolean; recursive?: boolean }
+  ): Promise<string[]> {
+    const paths = await this.deviceClient.shell(
+      `ls ${path || "/"} ${opts?.size ? "-s" : ""} ${
+        opts?.recursive ? "-R" : ""
+      }`.trim()
+    );
     if (!paths) return [];
     return paths.split("\n");
   }
@@ -417,6 +468,42 @@ export class DeviceClient {
    */
   public async reboot(): Promise<void> {
     await this.deviceClient.reboot();
+  }
+
+  /**
+   * Installs an Android application package (APK) on the device
+   * @param path - The path to the APK file to install
+   * @param props - Optional installation properties
+   * @param props.reinstall - If true, reinstalls the app and keeps its data. Uses the -r flag
+   * @param props.extra - Additional installation arguments to pass to the install command
+   * @throws Will throw an error if the installation fails
+   * @example
+   * // Basic installation
+   * await device.install("/path/to/app.apk");
+   *
+   * // Reinstall keeping data
+   * await device.install("/path/to/app.apk", { reinstall: true });
+   *
+   * // Install with extra arguments
+   * await device.install("/path/to/app.apk", {
+   *   extra: ["-d", "--instant"]
+   * });
+   */
+  public async install(
+    path: string,
+    props?: {
+      reinstall?: boolean;
+      extra?: string[];
+    }
+  ) {
+    let command = COMMANDS.install.replace("$path", path);
+    if (props?.reinstall) {
+      command += " -r";
+    }
+    if (props?.extra) {
+      command += ` ${props.extra.join(" ")}`;
+    }
+    await this.deviceClient.shell(command);
   }
 
   /**
@@ -573,7 +660,7 @@ export class DeviceClient {
       | DeviceControlTextInputs
       | DeviceControlKeyCodeInputs
       | DeviceControlSwipeInputs
-  ) {
+  ): Promise<void> {
     switch (action) {
       case "tap":
         const tapActionInput: DeviceControlTapInputs =
@@ -624,5 +711,139 @@ export class DeviceClient {
         );
         break;
     }
+  }
+
+  /**
+   * Takes a screenshot of the device's display and saves it to the specified path
+   * @param remotePath - The path on the device where the screenshot will be saved (e.g., "/sdcard/screenshot.png")
+   * @returns {Promise<void>} A promise that resolves when the screenshot is captured and saved
+   * @throws Will throw an error if the screenshot cannot be taken or saved
+   * @example
+   * // Take a screenshot and save it to the device's storage
+   * await device.getScreenshot("/sdcard/screenshot.png");
+   *
+   * // Take a screenshot with timestamp
+   * const timestamp = Date.now();
+   * await device.getScreenshot(`/sdcard/screenshot_${timestamp}.png`);
+   */
+  public async getScreenshot(remotePath: string): Promise<void> {
+    await this.deviceClient.shell(
+      COMMANDS.screenshot.replace("$path", remotePath)
+    );
+  }
+
+  /**
+   * Opens the device's gallery app
+   * @returns {Promise<void>} A promise that resolves when the gallery app is opened
+   * @throws Will throw an error if the gallery app cannot be opened
+   * @example
+   * // Open the device's gallery app
+   * await device.openGallery();
+   */
+  public async openGallery(): Promise<void> {
+    await this.deviceClient.shell(
+      COMMANDS.start.replace(
+        "$path",
+        "-t image/* -a android.intent.action.VIEW"
+      )
+    );
+  }
+
+  /**
+   * Broadcasts an action to all running applications
+   * @param {string} action - The action to broadcast
+   * @param {Object} props - Additional properties
+   * @param {string[]} props.extra - Extra arguments to pass to the broadcast command
+   * @returns {Promise<void>} A promise that resolves when the broadcast is sent
+   * @throws Will throw an error if the broadcast cannot be sent
+   * @example
+   * // Broadcast an action to all running applications
+   * await device.broadcast("com.example.ACTION");
+   *
+   * // Broadcast an action with extra arguments
+   * await device.broadcast("com.example.ACTION", {
+   *   extra: ["--es", "key", "value"]
+   * });
+   */
+  public async broadcast(
+    action: string,
+    props?: {
+      extra?: string[];
+    }
+  ): Promise<void> {
+    let command = COMMANDS.broadcast.replace("$action", action);
+    if (props?.extra) {
+      command += ` ${props.extra.join(" ")}`;
+    }
+    await this.deviceClient.shell(command);
+  }
+
+  /**
+   * Opens a URL in the device's default browser using an Android Intent
+   * @param url - The URL to open (e.g., "https://www.example.com")
+   * @returns {Promise<void>} A promise that resolves when the URL is opened
+   * @throws Will throw an error if the URL cannot be opened or is malformed
+   * @example
+   * // Open a website
+   * await device.openUrl("https://www.google.com");
+   *
+   * // Open a local file using file:// protocol
+   * await device.openUrl("file:///sdcard/document.pdf");
+   *
+   * // Open a deep link
+   * await device.openUrl("myapp://some/path");
+   */
+  public async openUrl(url: string): Promise<void> {
+    await this.deviceClient.shell(
+      COMMANDS.start.replace("$path", `-a android.intent.action.VIEW -d ${url}`)
+    );
+  }
+
+  /**
+   * Starts monitoring device logs (logcat) and provides real-time log updates
+   * @param onLog - Optional callback function that receives log messages as they arrive
+   * @returns {() => void} A function that can be called to stop the logcat monitoring
+   * @throws Will throw an error if the logcat stream encounters an error
+   * @example
+   * // Basic usage with console logging
+   * const stopLogging = device.logcat((log) => {
+   *   console.log('Device log:', log);
+   * });
+   *
+   * // Stop logging after 5 seconds
+   * setTimeout(() => {
+   *   stopLogging();
+   * }, 5000);
+   *
+   * // Filter specific logs
+   * const stopLogging = device.logcat((log) => {
+   *   if (log.includes('ERROR')) {
+   *     console.error('Error in device logs:', log);
+   *   }
+   * });
+   *
+   * // Simple monitoring without callback
+   * const stopLogging = device.logcat();
+   */
+  public logcat(onLog?: (log: string) => void): () => void {
+    const logcat = this.deviceClient.logcat(onLog);
+    let end: () => void = () => {};
+    new Promise<void>((resolve, reject) => {
+      end = reject;
+      logcat.on("data", (data) => {
+        if (onLog) {
+          onLog(data.toString());
+        }
+      });
+      logcat.on("close", () => {
+        resolve();
+      });
+
+      logcat.on("error", (err) => {
+        reject(err);
+      });
+    });
+
+    return end;
   }
 }

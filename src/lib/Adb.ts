@@ -49,7 +49,6 @@ export class Adb {
     return await this.exec(`shell ${command}`);
   }
 
-
   async reboot(): Promise<void> {
     await this.exec(`reboot`);
   }
@@ -80,7 +79,7 @@ export class Adb {
     });
 
     try {
-      const result:string = await executePromiseWithTimeout(
+      const result: string = await executePromiseWithTimeout(
         this.TIMEOUT,
         new Promise((resolve, reject) => {
           let stdout = "";
@@ -90,9 +89,7 @@ export class Adb {
           });
 
           stream.stderr.on("data", (data) => {
-            if (
-              stream.spawnargs.length > 1 
-            ) {
+            if (stream.spawnargs.length > 1) {
               stdout += data.toString();
             }
           });
@@ -137,7 +134,8 @@ export class Adb {
 
     const adbProcess: ChildProcessWithoutNullStreams = spawn(
       this.ADB_PATH,
-      fullArgs, {shell: true}
+      fullArgs,
+      { shell: true }
     );
 
     const result = await this.resolveStream(adbProcess);
@@ -148,8 +146,6 @@ export class Adb {
     const isStarted = await this.exec("start-server");
     return !!isStarted;
   }
-
-
 
   async push(
     stream: internal.Readable,
@@ -194,5 +190,20 @@ export class Adb {
     const result = await this.exec("install", [remotePath]);
 
     return result;
+  }
+
+  logcat(onLog?: (log: string) => void): ChildProcessWithoutNullStreams {
+    const adbProcess: ChildProcessWithoutNullStreams = spawn(
+      this.ADB_PATH,
+      ["logcat"],
+      { shell: true }
+    );
+    adbProcess.stdout.on("data", (data) => {
+      if (onLog) {
+        onLog(data.toString());
+      }
+    });
+
+    return adbProcess;
   }
 }
