@@ -735,4 +735,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-For more information and updates, visit the [GitHub repository](https://github.com/yourusername/easyadb).
+For more information and updates, visit the [GitHub repository](https://github.com/CanDgrmc/EasyAdb).
