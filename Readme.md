@@ -179,6 +179,38 @@ await deviceClient.reboot();
 // Enable/disable launcher
 await deviceClient.disableLauncher();
 await deviceClient.enableLauncher();
+
+// Take a basic screenshot
+await deviceClient.getScreenshot("/sdcard/screenshot.png");
+
+// Take a screenshot with timestamp
+const timestamp = Date.now();
+await deviceClient.getScreenshot(`/sdcard/screenshot_${timestamp}.png`
+
+// Open URL in device browser
+await deviceClient.openUrl("https://www.google.com");
+
+// Open local file
+await deviceClient.openUrl("file:///sdcard/document.pdf");
+
+// Open app deep link
+await deviceClient.openUrl("myapp://some/path");
+
+// Monitor device logs
+const stopLogging = deviceClient.logcat((log) => {
+  console.log("Device log:", log);
+});
+
+// Filter specific log types
+const stopErrorLogging = deviceClient.logcat((log) => {
+  if (log.includes("ERROR")) {
+    console.error("Error detected:", log);
+  }
+});
+
+// Stop logging when done
+stopLogging();
+stopErrorLogging();
 ```
 
 ### Shared Preferences Management
