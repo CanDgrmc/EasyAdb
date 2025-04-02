@@ -1,6 +1,6 @@
 {
   "name": "@4lpha/easyadb",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Adb Kit",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -12,6 +12,7 @@
   "scripts": {
     "test": "mocha --require ts-node/register test/*.ts",
     "dev": "ts-node src/index.ts",
+    "dev:test": "ts-node src/test.ts",
     "dev:watch": "node --watch --experimental-strip-types --env-file=.env src/index.ts",
     "build": "tsup",
     "lint": "eslint . --ext .ts",
