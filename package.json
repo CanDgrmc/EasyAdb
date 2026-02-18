@@ -1,6 +1,6 @@
 {
   "name": "@4lpha/easyadb",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Adb Kit",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
