@@ -4,6 +4,7 @@ import { Transform } from "stream";
 import type { IAdbOptions, IAdbOutputOptions } from "../types/adb/AdbOptions";
 import Logger from "../utils/Logger";
 import { executePromiseWithTimeout } from "../utils/Timeout";
+import downloadAdb, { type IAdbDownloadOptions, checkAdbExists } from "../tools/AdbDownloader";
 
 const DEFAULT_OUTPUT_OPTIONS: IAdbOutputOptions = {
   hasVerbose: false,
@@ -205,5 +206,24 @@ export class Adb {
     });
 
     return adbProcess;
+  }
+
+  async downloadAdb(options?: IAdbDownloadOptions): Promise<string> {
+    const logger = new Logger({
+      silent: !options?.verbose,
+      prefix: "ADB",
+    });
+
+    logger.log("Starting ADB download...");
+    const adbPath = await downloadAdb(options);
+    logger.log(`ADB downloaded successfully to: ${adbPath}`);
+    this.ADB_PATH = adbPath;
+    return adbPath;
+  }
+
+  async checkAdbExists(adbPath?: string): Promise<boolean> {
+    const pathToCheck = adbPath || this.ADB_PATH;
+    const exists = await checkAdbExists(pathToCheck);
+    return exists;
   }
 }

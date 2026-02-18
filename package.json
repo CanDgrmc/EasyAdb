@@ -26,10 +26,16 @@
   ],
   "author": "Can Doğramacı",
   "license": "MIT",
+  "dependencies": {
+    "tar": "^6.2.0",
+    "unzipper": "^0.11.5"
+  },
   "devDependencies": {
     "@types/chai": "^5.2.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.13.10",
+    "@types/tar": "^6.1.13",
+    "@types/unzipper": "^0.10.9",
     "@typescript-eslint/eslint-plugin": "^8.26.1",
     "@typescript-eslint/parser": "^8.26.1",
     "chai": "^5.2.0",

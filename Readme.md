@@ -13,6 +13,7 @@ A TypeScript library that provides a clean API for interacting with Android devi
 - Command execution on connected devices
 - Timeouts and error handling
 - Caching mechanism for frequently accessed device properties
+- Automatic ADB download and setup
 
 ## Installation
 
@@ -24,6 +25,60 @@ npm install @4lpha/easyadb
 
 - ADB (Android Debug Bridge) must be installed on your system and available in your PATH
 - For connection to physical devices, USB debugging must be enabled on the device
+
+## ADB Management
+
+EasyAdb provides tools to check for and download the ADB executable automatically.
+
+### Check if ADB Exists
+
+You can check if ADB is installed and accessible:
+
+```typescript
+import { AdbClient } from "@4lpha/easyadb";
+
+const adb = new AdbClient();
+const exists = await adb.checkAdbExists();
+
+if (exists) {
+  console.log("ADB is available");
+} else {
+  console.log("ADB not found");
+}
+```
+
+### Download ADB
+
+If ADB is not installed, you can download the latest platform-tools automatically:
+
+```typescript
+const adb = new AdbClient();
+
+// Download ADB to default location (current_dir/.adb)
+const adbPath = await adb.downloadAdb({
+  verbose: true, // Enable logging
+  onProgress: (downloaded, total) => {
+    const percentage = Math.round((downloaded / total) * 100);
+    console.log(`Downloaded: ${percentage}%`);
+  }
+});
+
+console.log(`ADB downloaded to: ${adbPath}`);
+
+// The client automatically updates its ADB path to the downloaded version
+await adb.startServer();
+```
+
+You can also use the standalone functions:
+
+```typescript
+import { downloadAdb, checkAdbExists } from "@4lpha/easyadb";
+
+const exists = await checkAdbExists();
+if (!exists) {
+  const path = await downloadAdb();
+}
+```
 
 ## Basic Usage
 
@@ -480,6 +535,8 @@ The base class that provides core ADB functionality.
 | `exec(command: string, args?: string[])` | Executes an ADB command with optional arguments        |
 | `reboot()`                               | Reboots the device                                     |
 | `uninstall(packagename: string)`         | Uninstalls an app by package name                      |
+| `downloadAdb(options?: IAdbDownloadOptions)` | Downloads ADB platform-tools                       |
+| `checkAdbExists(adbPath?: string)`       | Checks if ADB exists at path or in PATH                |
 
 ## API Reference (continued)
 
