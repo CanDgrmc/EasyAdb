@@ -7,10 +7,13 @@ import type {
   DeviceControlTextInputs,
   DeviceMemory,
   StorageInfo,
+  PortForwardRule,
+  ScreenRecordOptions,
 } from "../types/device/DeviceProps";
 import { parseProperty } from "../utils/StrHelper";
 import type { AdbDeviceClient } from "./AdbDeviceClient";
 import { ChildProcessWithoutNullStreams } from "child_process";
+
 
 const COMMANDS = Object.freeze({
   deviceName: "getprop ro.product.name",
@@ -442,8 +445,18 @@ export class DeviceClient {
   }
 
   /**
+   * Executes a shell command on the device
+   * @param command - The command to execute (e.g. "ls /sdcard")
+   * @returns {Promise<string | null>} The command output or null if failed
+   */
+  public async shell(command: string): Promise<string | null> {
+    return this.deviceClient.shell(command);
+  }
+
+  /**
    * Lists files and directories in the specified path on the device
    * @param {string} [path="/"] - Directory path to list contents from
+
    * @param {object|undefined} opts Optional ls properties
    * @param {boolean|undefined} opts.size Display size of files
    * @param {boolean|undefined} opts.recursive Display folders recursively
@@ -454,9 +467,8 @@ export class DeviceClient {
     opts?: { size?: boolean; recursive?: boolean }
   ): Promise<string[]> {
     const paths = await this.deviceClient.shell(
-      `ls ${path || "/"} ${opts?.size ? "-s" : ""} ${
-        opts?.recursive ? "-R" : ""
-      }`.trim()
+      `ls ${path || "/"} ${opts?.size ? "-s" : ""} ${opts?.recursive ? "-R" : ""
+        }`.trim()
     );
     if (!paths) return [];
     return paths.split("\n");
@@ -827,7 +839,7 @@ export class DeviceClient {
    */
   public logcat(onLog?: (log: string) => void): () => void {
     const logcat = this.deviceClient.logcat(onLog);
-    let end: () => void = () => {};
+    let end: () => void = () => { };
     new Promise<void>((resolve, reject) => {
       end = reject;
       logcat.on("data", (data) => {
@@ -846,4 +858,140 @@ export class DeviceClient {
 
     return end;
   }
+
+  /**
+   * Forward socket connections from local to remote
+   * @param local - Local socket specification (e.g. "tcp:8000")
+   * @param remote - Remote socket specification (e.g. "tcp:9000")
+   * @returns {Promise<boolean>} True if successful
+   */
+  public async forward(local: string, remote: string): Promise<boolean> {
+    const output = await this.deviceClient.exec("forward", [local, remote]);
+    return output !== null;
+  }
+
+  /**
+   * Reverse socket connections from remote to local
+   * @param remote - Remote socket specification (e.g. "tcp:9000")
+   * @param local - Local socket specification (e.g. "tcp:8000")
+   * @returns {Promise<boolean>} True if successful
+   */
+  public async reverse(remote: string, local: string): Promise<boolean> {
+    const output = await this.deviceClient.exec("reverse", [remote, local]);
+    return output !== null;
+  }
+
+  /**
+   * List all forward rules
+   * @returns {Promise<PortForwardRule[]>} Array of forward rules
+   */
+  public async getForwardList(): Promise<PortForwardRule[]> {
+    const output = await this.deviceClient.exec("forward", ["--list"]);
+    if (!output) return [];
+
+    return output
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => {
+        const [serial, local, remote] = line.split(/\s+/);
+        return { serial, local, remote };
+      });
+  }
+
+  /**
+   * Remove a specific forward rule
+   * @param local - Local socket specification to remove
+   * @returns {Promise<boolean>} True if successful
+   */
+  public async removeForward(local: string): Promise<boolean> {
+    const output = await this.deviceClient.exec("forward", ["--remove", local]);
+    return output !== null;
+  }
+
+  /**
+   * Remove all forward rules for this device
+   * @returns {Promise<boolean>} True if successful
+   */
+  public async removeAllForwards(): Promise<boolean> {
+    const output = await this.deviceClient.exec("forward", ["--remove-all"]);
+    return output !== null;
+  }
+
+  /**
+   * List all reverse rules
+   * @returns {Promise<PortForwardRule[]>} Array of reverse rules
+   */
+  public async getReverseList(): Promise<PortForwardRule[]> {
+    const output = await this.deviceClient.exec("reverse", ["--list"]);
+    if (!output) return [];
+
+    return output
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => {
+        const [remote, local] = line.split(/\s+/);
+        return { serial: this.deviceClient.deviceId, local, remote };
+      });
+  }
+
+  /**
+   * Remove a specific reverse rule
+   * @param remote - Remote socket specification to remove
+   * @returns {Promise<boolean>} True if successful
+   */
+  public async removeReverse(remote: string): Promise<boolean> {
+    const output = await this.deviceClient.exec("reverse", ["--remove", remote]);
+    return output !== null;
+  }
+
+  /**
+   * Remove all reverse rules for this device
+   * @returns {Promise<boolean>} True if successful
+   */
+  public async removeAllReverses(): Promise<boolean> {
+    const output = await this.deviceClient.exec("reverse", ["--remove-all"]);
+    return output !== null;
+  }
+
+  /**
+   * Stars screen recording on the device.
+   * Note: This returns a ChildProcess, you must handle the process lifecycle (e.g. killing it to stop recording).
+   * @param remotePath - Path on device to save the recording (e.g. /sdcard/demo.mp4)
+   * @param options - Recording options
+   * @returns {ChildProcessWithoutNullStreams} The recording process
+   */
+  public screenRecord(
+    remotePath: string,
+    options?: ScreenRecordOptions
+  ): ChildProcessWithoutNullStreams {
+    const args = ["shell", "screenrecord"];
+
+    if (options?.size) {
+      args.push("--size", options.size);
+    }
+
+    if (options?.bitRate) {
+      args.push("--bit-rate", options.bitRate.toString());
+    }
+
+    if (options?.timeLimit) {
+      args.push("--time-limit", options.timeLimit.toString());
+    }
+
+    if (options?.verbose) {
+      args.push("--verbose");
+    }
+
+    args.push(remotePath);
+
+    // deviceClient.spawn will use "adb -s serial shell screenrecord ..."
+    // We already added "shell" to args, so we can't use deviceClient.shell() which might wait.
+    // We use spawn directly.
+    // If Adb.spawn puts args after command...
+    // command="shell", args=["screenrecord", ...]
+    // fullArgs = ["shell", "screenrecord", ...]
+    // spawn("adb -s serial", fullArgs) -> "adb -s serial shell screenrecord ..."
+    return this.deviceClient.spawn("shell", ["screenrecord", ...args.slice(2)]);
+  }
 }
+

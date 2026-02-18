@@ -42,3 +42,17 @@ export type DeviceControlTextInputs = {
 export type DeviceControlKeyCodeInputs = {
   keycode: string;
 };
+
+export interface PortForwardRule {
+  serial: string;
+  local: string;
+  remote: string;
+}
+
+export interface ScreenRecordOptions {
+  size?: string; // WIDTHxHEIGHT
+  bitRate?: number; // default 4000000 (4Mbps)
+  timeLimit?: number; // default 180 (3 minutes)
+  verbose?: boolean;
+}
+

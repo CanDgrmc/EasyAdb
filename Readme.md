@@ -361,6 +361,54 @@ await deviceClient.broadcast("com.example.ACTION", {
 });
 ```
 
+### Advanced Connectivity
+
+#### Wireless Pairing (Android 11+)
+
+```typescript
+const adb = new AdbClient();
+// Pair with a device using IP, Port, and Pairing Code
+await adb.pair("192.168.1.100", 5555, "123456");
+```
+
+#### Port Forwarding & Reverse
+
+```typescript
+// Forward local port 8000 to remote port 9000
+await deviceClient.forward("tcp:8000", "tcp:9000");
+
+// Reverse remote port 9000 to local port 8000
+await deviceClient.reverse("tcp:9000", "tcp:8000");
+
+// List forward rules
+const forwards = await deviceClient.getForwardList();
+
+// Remove a forward rule
+await deviceClient.removeForward("tcp:8000");
+
+// Remove all forward rules
+await deviceClient.removeAllForwards();
+```
+
+### Screen Recording
+
+```typescript
+// Start screen recording
+const process = deviceClient.screenRecord("/sdcard/demo.mp4", {
+  timeLimit: 10, // 10 seconds
+  bitRate: 4000000, // 4Mbps
+  size: "1920x1080"
+});
+
+// The process runs in background. You can kill it to stop earlier.
+// setTimeout(() => process.kill(), 5000);
+
+// After recording, you can pull the file
+await process.on("close", async () => {
+    await deviceClient.pull("/sdcard/demo.mp4", "./demo.mp4");
+});
+```
+
 ## Advanced Configuration
 
 ### Custom ADB Path
@@ -554,6 +602,7 @@ Extends the Adb class with additional client functionality.
 | `disconnect(address?: string)`                     | Disconnects from a device or all devices           |
 | `waitForDevice(serial?: string, timeout?: number)` | Waits for a device to be connected                 |
 | `tcpip(port?: number)`                             | Restarts ADB in TCP/IP mode                        |
+| `pair(host: string, port: number, code?: string)`  | Pairs with a device using Wireless Debugging       |
 
 ### DeviceClient Class
 
@@ -602,6 +651,15 @@ Provides device-specific functionality.
 | `clearSharedConfig(packageName: string, key: string)`                                                | Clears a specific shared preference                 |
 | `clearAllSharedConfig(packageName: string)`                                                          | Clears all shared preferences                       |
 | `broadcast(action: string, options?: BroadcastOptions)`                                              | Sends a broadcast action                            |
+| `forward(local: string, remote: string)`                                                             | Forwards socket connections                         |
+| `reverse(remote: string, local: string)`                                                             | Reverses socket connections                         |
+| `getForwardList()`                                                                                   | Lists all forward rules                             |
+| `removeForward(local: string)`                                                                       | Removes a forward rule                              |
+| `removeAllForwards()`                                                                                | Removes all forward rules                           |
+| `getReverseList()`                                                                                   | Lists all reverse rules                             |
+| `removeReverse(remote: string)`                                                                      | Removes a reverse rule                              |
+| `removeAllReverses()`                                                                                | Removes all reverse rules                           |
+| `screenRecord(remotePath: string, options?: ScreenRecordOptions)`                                    | Starts screen recording                             |
 
 ## Common KeyEvent Codes
 

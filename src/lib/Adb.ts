@@ -226,4 +226,10 @@ export class Adb {
     const exists = await checkAdbExists(pathToCheck);
     return exists;
   }
+
+  spawn(command: string, args?: string[]): ChildProcessWithoutNullStreams {
+    const fullArgs = [command, ...(args || [])];
+    return spawn(this.ADB_PATH, fullArgs, { shell: true });
+  }
 }
+

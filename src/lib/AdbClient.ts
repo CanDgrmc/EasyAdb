@@ -60,4 +60,14 @@ export class AdbClient extends Adb implements IAdbClient {
     const deviceClient = new DeviceClient(adbDeviceClient);
     return deviceClient;
   }
+
+  async pair(host: string, port: number, code?: string): Promise<boolean> {
+    const args = [`${host}:${port}`];
+    if (code) {
+      args.push(code);
+    }
+    const result = await this.exec("pair", args);
+    return !!result;
+  }
 }
+

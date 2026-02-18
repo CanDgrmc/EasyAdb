@@ -3,3 +3,4 @@ node_modules
 *.config.js
 .DS_Store
 test.ts
+test
