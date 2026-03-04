@@ -13,6 +13,15 @@ type IAdbOutputOptions = {
     noThrow?: boolean;
 };
 
+interface IAdbDownloadOptions {
+    destinationPath?: string;
+    version?: string;
+    verbose?: boolean;
+    onProgress?: (downloaded: number, total: number) => void;
+}
+declare function downloadAdb(options?: IAdbDownloadOptions): Promise<string>;
+declare function checkAdbExists(adbPath?: string): Promise<boolean>;
+
 declare class Adb {
     ADB_PATH: string;
     TIMEOUT: number;
@@ -31,6 +40,9 @@ declare class Adb {
     pull(path: string, to: string): Promise<void>;
     install(remotePath: string): Promise<string | null>;
     logcat(onLog?: (log: string) => void): ChildProcessWithoutNullStreams;
+    downloadAdb(options?: IAdbDownloadOptions): Promise<string>;
+    checkAdbExists(adbPath?: string): Promise<boolean>;
+    spawn(command: string, args?: string[]): ChildProcessWithoutNullStreams;
 }
 
 interface IAdbClient {
@@ -77,6 +89,17 @@ type DeviceControlTextInputs = {
 type DeviceControlKeyCodeInputs = {
     keycode: string;
 };
+interface PortForwardRule {
+    serial: string;
+    local: string;
+    remote: string;
+}
+interface ScreenRecordOptions {
+    size?: string;
+    bitRate?: number;
+    timeLimit?: number;
+    verbose?: boolean;
+}
 
 type DeviceProps_CacheEntry<T> = CacheEntry<T>;
 type DeviceProps_DeviceControlKeyCodeInputs = DeviceControlKeyCodeInputs;
@@ -84,9 +107,11 @@ type DeviceProps_DeviceControlSwipeInputs = DeviceControlSwipeInputs;
 type DeviceProps_DeviceControlTapInputs = DeviceControlTapInputs;
 type DeviceProps_DeviceControlTextInputs = DeviceControlTextInputs;
 type DeviceProps_DeviceMemory = DeviceMemory;
+type DeviceProps_PortForwardRule = PortForwardRule;
+type DeviceProps_ScreenRecordOptions = ScreenRecordOptions;
 type DeviceProps_StorageInfo = StorageInfo;
 declare namespace DeviceProps {
-  export type { DeviceProps_CacheEntry as CacheEntry, DeviceProps_DeviceControlKeyCodeInputs as DeviceControlKeyCodeInputs, DeviceProps_DeviceControlSwipeInputs as DeviceControlSwipeInputs, DeviceProps_DeviceControlTapInputs as DeviceControlTapInputs, DeviceProps_DeviceControlTextInputs as DeviceControlTextInputs, DeviceProps_DeviceMemory as DeviceMemory, DeviceProps_StorageInfo as StorageInfo };
+  export type { DeviceProps_CacheEntry as CacheEntry, DeviceProps_DeviceControlKeyCodeInputs as DeviceControlKeyCodeInputs, DeviceProps_DeviceControlSwipeInputs as DeviceControlSwipeInputs, DeviceProps_DeviceControlTapInputs as DeviceControlTapInputs, DeviceProps_DeviceControlTextInputs as DeviceControlTextInputs, DeviceProps_DeviceMemory as DeviceMemory, DeviceProps_PortForwardRule as PortForwardRule, DeviceProps_ScreenRecordOptions as ScreenRecordOptions, DeviceProps_StorageInfo as StorageInfo };
 }
 
 declare class AdbDeviceClient extends Adb {
@@ -276,8 +301,15 @@ declare class DeviceClient {
      */
     clearCache(app: string): Promise<string | null>;
     /**
+     * Executes a shell command on the device
+     * @param command - The command to execute (e.g. "ls /sdcard")
+     * @returns {Promise<string | null>} The command output or null if failed
+     */
+    shell(command: string): Promise<string | null>;
+    /**
      * Lists files and directories in the specified path on the device
      * @param {string} [path="/"] - Directory path to list contents from
+  
      * @param {object|undefined} opts Optional ls properties
      * @param {boolean|undefined} opts.size Display size of files
      * @param {boolean|undefined} opts.recursive Display folders recursively
@@ -487,6 +519,60 @@ declare class DeviceClient {
      * const stopLogging = device.logcat();
      */
     logcat(onLog?: (log: string) => void): () => void;
+    /**
+     * Forward socket connections from local to remote
+     * @param local - Local socket specification (e.g. "tcp:8000")
+     * @param remote - Remote socket specification (e.g. "tcp:9000")
+     * @returns {Promise<boolean>} True if successful
+     */
+    forward(local: string, remote: string): Promise<boolean>;
+    /**
+     * Reverse socket connections from remote to local
+     * @param remote - Remote socket specification (e.g. "tcp:9000")
+     * @param local - Local socket specification (e.g. "tcp:8000")
+     * @returns {Promise<boolean>} True if successful
+     */
+    reverse(remote: string, local: string): Promise<boolean>;
+    /**
+     * List all forward rules
+     * @returns {Promise<PortForwardRule[]>} Array of forward rules
+     */
+    getForwardList(): Promise<PortForwardRule[]>;
+    /**
+     * Remove a specific forward rule
+     * @param local - Local socket specification to remove
+     * @returns {Promise<boolean>} True if successful
+     */
+    removeForward(local: string): Promise<boolean>;
+    /**
+     * Remove all forward rules for this device
+     * @returns {Promise<boolean>} True if successful
+     */
+    removeAllForwards(): Promise<boolean>;
+    /**
+     * List all reverse rules
+     * @returns {Promise<PortForwardRule[]>} Array of reverse rules
+     */
+    getReverseList(): Promise<PortForwardRule[]>;
+    /**
+     * Remove a specific reverse rule
+     * @param remote - Remote socket specification to remove
+     * @returns {Promise<boolean>} True if successful
+     */
+    removeReverse(remote: string): Promise<boolean>;
+    /**
+     * Remove all reverse rules for this device
+     * @returns {Promise<boolean>} True if successful
+     */
+    removeAllReverses(): Promise<boolean>;
+    /**
+     * Stars screen recording on the device.
+     * Note: This returns a ChildProcess, you must handle the process lifecycle (e.g. killing it to stop recording).
+     * @param remotePath - Path on device to save the recording (e.g. /sdcard/demo.mp4)
+     * @param options - Recording options
+     * @returns {ChildProcessWithoutNullStreams} The recording process
+     */
+    screenRecord(remotePath: string, options?: ScreenRecordOptions): ChildProcessWithoutNullStreams;
 }
 
 declare class AdbClient extends Adb implements IAdbClient {
@@ -494,6 +580,7 @@ declare class AdbClient extends Adb implements IAdbClient {
     disconnect(deviceIp: string): Promise<boolean>;
     getDevices(): Promise<DeviceClient[]>;
     getDevice(deviceId: string): Promise<DeviceClient>;
+    pair(host: string, port: number, code?: string): Promise<boolean>;
 }
 
 declare const parseProperty: (props: string, propName: string) => string;
@@ -508,4 +595,4 @@ type AdbTypes = {
     IAdbOutputOptions: IAdbOutputOptions;
 };
 
-export { Adb, AdbClient, type AdbTypes, DeviceClient, DeviceProps, parseProperty };
+export { Adb, AdbClient, type AdbTypes, DeviceClient, DeviceProps, type IAdbDownloadOptions, checkAdbExists, downloadAdb, parseProperty };

@@ -70,12 +70,14 @@ __export(index_exports, {
   Adb: () => Adb,
   AdbClient: () => AdbClient,
   DeviceClient: () => DeviceClient,
+  checkAdbExists: () => checkAdbExists,
+  downloadAdb: () => downloadAdb,
   parseProperty: () => parseProperty
 });
 module.exports = __toCommonJS(index_exports);
 
 // src/lib/Adb.ts
-var import_child_process = require("child_process");
+var import_child_process2 = require("child_process");
 var import_stream = require("stream");
 
 // src/utils/FnHelpers.ts
@@ -192,7 +194,7 @@ var createTimeout = (ms) => {
     );
   });
 };
-var executePromiseWithTimeout = (ms, promise) => __async(void 0, null, function* () {
+var executePromiseWithTimeout = (ms, promise) => __async(null, null, function* () {
   return new Promise((resolve, reject) => {
     Promise.race([promise, createTimeout(ms)]).then((res) => {
       if (res instanceof Error) {
@@ -203,6 +205,184 @@ var executePromiseWithTimeout = (ms, promise) => __async(void 0, null, function*
     }).catch(reject);
   });
 });
+
+// src/tools/AdbDownloader.ts
+var import_https = __toESM(require("https"));
+var import_fs = require("fs");
+var import_tar = require("tar");
+var import_fs2 = require("fs");
+var import_os = require("os");
+var import_path = require("path");
+var import_child_process = require("child_process");
+var PLATFORM_MAPPING = {
+  linux: {
+    x64: {
+      url: "https://dl.google.com/android/repository/platform-tools-latest-linux.zip",
+      folder: "platform-tools"
+    },
+    arm64: {
+      url: "https://dl.google.com/android/repository/platform-tools-latest-linux.zip",
+      folder: "platform-tools"
+    }
+  },
+  darwin: {
+    x64: {
+      url: "https://dl.google.com/android/repository/platform-tools-latest-darwin.zip",
+      folder: "platform-tools"
+    },
+    arm64: {
+      url: "https://dl.google.com/android/repository/platform-tools-latest-darwin.zip",
+      folder: "platform-tools"
+    }
+  },
+  win32: {
+    x64: {
+      url: "https://dl.google.com/android/repository/platform-tools-latest-windows.zip",
+      folder: "platform-tools"
+    },
+    x32: {
+      url: "https://dl.google.com/android/repository/platform-tools-latest-windows.zip",
+      folder: "platform-tools"
+    }
+  }
+};
+function downloadAdb() {
+  return __async(this, arguments, function* (options = {}) {
+    const {
+      destinationPath = (0, import_path.join)(process.cwd(), ".adb"),
+      verbose = false,
+      onProgress
+    } = options;
+    const logger = new Logger({
+      silent: !verbose,
+      prefix: "AdbDownloader"
+    });
+    try {
+      const currentPlatform = (0, import_os.platform)();
+      const currentArch = (0, import_os.arch)();
+      logger.log(
+        `Detected platform: ${currentPlatform}, arch: ${currentArch}`
+      );
+      const platformConfig = PLATFORM_MAPPING[currentPlatform];
+      if (!platformConfig) {
+        throw new Error(
+          `Unsupported platform: ${currentPlatform}. Supported platforms: linux, darwin, win32`
+        );
+      }
+      const archConfig = platformConfig[currentArch];
+      if (!archConfig) {
+        throw new Error(
+          `Unsupported architecture: ${currentArch} on ${currentPlatform}`
+        );
+      }
+      const { url, folder } = archConfig;
+      logger.log(`Downloading ADB from: ${url}`);
+      if (!(0, import_fs.existsSync)(destinationPath)) {
+        (0, import_fs.mkdirSync)(destinationPath, { recursive: true });
+      }
+      const downloadPath = yield downloadFile(url, destinationPath, onProgress);
+      logger.log(`Downloaded to: ${downloadPath}`);
+      logger.log("Extracting archive...");
+      const adbPath = yield extractArchive(downloadPath, destinationPath, folder);
+      logger.log(`ADB extracted to: ${adbPath}`);
+      (0, import_fs2.unlinkSync)(downloadPath);
+      logger.log("Cleanup complete");
+      return adbPath;
+    } catch (error) {
+      logger.error("Failed to download ADB:", error);
+      throw error;
+    }
+  });
+}
+function downloadFile(url, destinationPath, onProgress) {
+  return __async(this, null, function* () {
+    return new Promise((resolve, reject) => {
+      const fileName = url.split("/").pop() || "adb.zip";
+      const filePath = (0, import_path.join)(destinationPath, fileName);
+      const file = (0, import_fs.createWriteStream)(filePath);
+      let downloadedBytes = 0;
+      import_https.default.get(url, { timeout: 3e4 }, (response) => {
+        const totalBytes = parseInt(
+          response.headers["content-length"] || "0",
+          10
+        );
+        response.on("data", (chunk) => {
+          downloadedBytes += chunk.length;
+          if (onProgress && totalBytes > 0) {
+            onProgress(downloadedBytes, totalBytes);
+          }
+        });
+        response.pipe(file);
+      }).on("error", (error) => {
+        file.destroy();
+        (0, import_fs2.unlinkSync)(filePath);
+        reject(new Error(`Failed to download file: ${error.message}`));
+      });
+      file.on("finish", () => {
+        file.close();
+        resolve(filePath);
+      });
+      file.on("error", (error) => {
+        (0, import_fs2.unlinkSync)(filePath);
+        reject(new Error(`Failed to write file: ${error.message}`));
+      });
+    });
+  });
+}
+function extractArchive(archivePath, destinationPath, extractFolder) {
+  return __async(this, null, function* () {
+    return new Promise((resolve, reject) => {
+      if (archivePath.endsWith(".zip")) {
+        extractZip(archivePath, destinationPath).then(() => {
+          const adbPath = (0, import_path.join)(destinationPath, extractFolder);
+          resolve(adbPath);
+        }).catch(reject);
+      } else {
+        (0, import_fs2.createReadStream)(archivePath).pipe(
+          (0, import_tar.extract)({
+            cwd: destinationPath
+          })
+        ).on("finish", () => {
+          const adbPath = (0, import_path.join)(destinationPath, extractFolder);
+          resolve(adbPath);
+        }).on("error", reject);
+      }
+    });
+  });
+}
+function extractZip(zipPath, destinationPath) {
+  return __async(this, null, function* () {
+    try {
+      const unzipper = yield import("unzipper");
+      return new Promise((resolve, reject) => {
+        (0, import_fs2.createReadStream)(zipPath).pipe(unzipper.default.Extract({ path: destinationPath })).on("close", () => resolve()).on("error", reject);
+      });
+    } catch (error) {
+      throw new Error(
+        `Failed to extract zip file. Make sure 'unzipper' is installed: ${error}`
+      );
+    }
+  });
+}
+function checkAdbExists(adbPath = "adb") {
+  return __async(this, null, function* () {
+    try {
+      if (adbPath.startsWith("/") || adbPath.startsWith("\\") || adbPath.includes(":")) {
+        return (0, import_fs.existsSync)(adbPath);
+      }
+      try {
+        const command = (0, import_os.platform)() === "win32" ? `where ${adbPath}` : `which ${adbPath}`;
+        (0, import_child_process.execSync)(command, { stdio: "pipe" });
+        return true;
+      } catch (e) {
+        return false;
+      }
+    } catch (error) {
+      return false;
+    }
+  });
+}
+var AdbDownloader_default = downloadAdb;
 
 // src/lib/Adb.ts
 var DEFAULT_OUTPUT_OPTIONS = {
@@ -321,7 +501,7 @@ var Adb = class {
       });
       const fullArgs = [command, ...args || []];
       logger.log(`Executing command: adb ${fullArgs.join(" ")}`);
-      const adbProcess = (0, import_child_process.spawn)(
+      const adbProcess = (0, import_child_process2.spawn)(
         this.ADB_PATH,
         fullArgs,
         { shell: true }
@@ -338,7 +518,7 @@ var Adb = class {
   }
   push(stream, remotePath, onProgress) {
     return __async(this, null, function* () {
-      const adbProcess = (0, import_child_process.spawn)(this.ADB_PATH, [
+      const adbProcess = (0, import_child_process2.spawn)(this.ADB_PATH, [
         "push",
         remotePath
       ]);
@@ -373,7 +553,7 @@ var Adb = class {
     });
   }
   logcat(onLog) {
-    const adbProcess = (0, import_child_process.spawn)(
+    const adbProcess = (0, import_child_process2.spawn)(
       this.ADB_PATH,
       ["logcat"],
       { shell: true }
@@ -384,6 +564,30 @@ var Adb = class {
       }
     });
     return adbProcess;
+  }
+  downloadAdb(options) {
+    return __async(this, null, function* () {
+      const logger = new Logger({
+        silent: !(options == null ? void 0 : options.verbose),
+        prefix: "ADB"
+      });
+      logger.log("Starting ADB download...");
+      const adbPath = yield AdbDownloader_default(options);
+      logger.log(`ADB downloaded successfully to: ${adbPath}`);
+      this.ADB_PATH = adbPath;
+      return adbPath;
+    });
+  }
+  checkAdbExists(adbPath) {
+    return __async(this, null, function* () {
+      const pathToCheck = adbPath || this.ADB_PATH;
+      const exists = yield checkAdbExists(pathToCheck);
+      return exists;
+    });
+  }
+  spawn(command, args) {
+    const fullArgs = [command, ...args || []];
+    return (0, import_child_process2.spawn)(this.ADB_PATH, fullArgs, { shell: true });
   }
 };
 
@@ -402,7 +606,7 @@ var AdbDeviceClient = class extends Adb {
 };
 
 // src/lib/DeviceClient.ts
-var import_fs = __toESM(require("fs"));
+var import_fs3 = __toESM(require("fs"));
 var COMMANDS = Object.freeze({
   deviceName: "getprop ro.product.name",
   resolution: "wm size",
@@ -787,10 +991,10 @@ var DeviceClient = class {
    */
   push(path, remotePath, onProgress) {
     return __async(this, null, function* () {
-      if (typeof path === "string" && !import_fs.default.existsSync(path)) {
+      if (typeof path === "string" && !import_fs3.default.existsSync(path)) {
         throw new Error(`File ${path} does not exist`);
       }
-      const stream = typeof path === "string" ? import_fs.default.createReadStream(path) : path;
+      const stream = typeof path === "string" ? import_fs3.default.createReadStream(path) : path;
       const installed = yield this.deviceClient.push(
         stream,
         remotePath,
@@ -829,13 +1033,24 @@ var DeviceClient = class {
     });
   }
   /**
-   * Lists files and directories in the specified path on the device
-   * @param {string} [path="/"] - Directory path to list contents from
-   * @param {object|undefined} opts Optional ls properties
-   * @param {boolean|undefined} opts.size Display size of files
-   * @param {boolean|undefined} opts.recursive Display folders recursively
-   * @returns {Promise<string[]>} Array of file/directory names
+   * Executes a shell command on the device
+   * @param command - The command to execute (e.g. "ls /sdcard")
+   * @returns {Promise<string | null>} The command output or null if failed
    */
+  shell(command) {
+    return __async(this, null, function* () {
+      return this.deviceClient.shell(command);
+    });
+  }
+  /**
+     * Lists files and directories in the specified path on the device
+     * @param {string} [path="/"] - Directory path to list contents from
+  
+     * @param {object|undefined} opts Optional ls properties
+     * @param {boolean|undefined} opts.size Display size of files
+     * @param {boolean|undefined} opts.recursive Display folders recursively
+     * @returns {Promise<string[]>} Array of file/directory names
+     */
   ls(path, opts) {
     return __async(this, null, function* () {
       const paths = yield this.deviceClient.shell(
@@ -1180,6 +1395,124 @@ var DeviceClient = class {
     });
     return end;
   }
+  /**
+   * Forward socket connections from local to remote
+   * @param local - Local socket specification (e.g. "tcp:8000")
+   * @param remote - Remote socket specification (e.g. "tcp:9000")
+   * @returns {Promise<boolean>} True if successful
+   */
+  forward(local, remote) {
+    return __async(this, null, function* () {
+      const output = yield this.deviceClient.exec("forward", [local, remote]);
+      return output !== null;
+    });
+  }
+  /**
+   * Reverse socket connections from remote to local
+   * @param remote - Remote socket specification (e.g. "tcp:9000")
+   * @param local - Local socket specification (e.g. "tcp:8000")
+   * @returns {Promise<boolean>} True if successful
+   */
+  reverse(remote, local) {
+    return __async(this, null, function* () {
+      const output = yield this.deviceClient.exec("reverse", [remote, local]);
+      return output !== null;
+    });
+  }
+  /**
+   * List all forward rules
+   * @returns {Promise<PortForwardRule[]>} Array of forward rules
+   */
+  getForwardList() {
+    return __async(this, null, function* () {
+      const output = yield this.deviceClient.exec("forward", ["--list"]);
+      if (!output) return [];
+      return output.split("\n").filter((line) => line.trim() !== "").map((line) => {
+        const [serial, local, remote] = line.split(/\s+/);
+        return { serial, local, remote };
+      });
+    });
+  }
+  /**
+   * Remove a specific forward rule
+   * @param local - Local socket specification to remove
+   * @returns {Promise<boolean>} True if successful
+   */
+  removeForward(local) {
+    return __async(this, null, function* () {
+      const output = yield this.deviceClient.exec("forward", ["--remove", local]);
+      return output !== null;
+    });
+  }
+  /**
+   * Remove all forward rules for this device
+   * @returns {Promise<boolean>} True if successful
+   */
+  removeAllForwards() {
+    return __async(this, null, function* () {
+      const output = yield this.deviceClient.exec("forward", ["--remove-all"]);
+      return output !== null;
+    });
+  }
+  /**
+   * List all reverse rules
+   * @returns {Promise<PortForwardRule[]>} Array of reverse rules
+   */
+  getReverseList() {
+    return __async(this, null, function* () {
+      const output = yield this.deviceClient.exec("reverse", ["--list"]);
+      if (!output) return [];
+      return output.split("\n").filter((line) => line.trim() !== "").map((line) => {
+        const [remote, local] = line.split(/\s+/);
+        return { serial: this.deviceClient.deviceId, local, remote };
+      });
+    });
+  }
+  /**
+   * Remove a specific reverse rule
+   * @param remote - Remote socket specification to remove
+   * @returns {Promise<boolean>} True if successful
+   */
+  removeReverse(remote) {
+    return __async(this, null, function* () {
+      const output = yield this.deviceClient.exec("reverse", ["--remove", remote]);
+      return output !== null;
+    });
+  }
+  /**
+   * Remove all reverse rules for this device
+   * @returns {Promise<boolean>} True if successful
+   */
+  removeAllReverses() {
+    return __async(this, null, function* () {
+      const output = yield this.deviceClient.exec("reverse", ["--remove-all"]);
+      return output !== null;
+    });
+  }
+  /**
+   * Stars screen recording on the device.
+   * Note: This returns a ChildProcess, you must handle the process lifecycle (e.g. killing it to stop recording).
+   * @param remotePath - Path on device to save the recording (e.g. /sdcard/demo.mp4)
+   * @param options - Recording options
+   * @returns {ChildProcessWithoutNullStreams} The recording process
+   */
+  screenRecord(remotePath, options) {
+    const args = ["shell", "screenrecord"];
+    if (options == null ? void 0 : options.size) {
+      args.push("--size", options.size);
+    }
+    if (options == null ? void 0 : options.bitRate) {
+      args.push("--bit-rate", options.bitRate.toString());
+    }
+    if (options == null ? void 0 : options.timeLimit) {
+      args.push("--time-limit", options.timeLimit.toString());
+    }
+    if (options == null ? void 0 : options.verbose) {
+      args.push("--verbose");
+    }
+    args.push(remotePath);
+    return this.deviceClient.spawn("shell", ["screenrecord", ...args.slice(2)]);
+  }
 };
 
 // src/lib/AdbClient.ts
@@ -1238,11 +1571,23 @@ var AdbClient = class extends Adb {
       return deviceClient;
     });
   }
+  pair(host, port, code) {
+    return __async(this, null, function* () {
+      const args = [`${host}:${port}`];
+      if (code) {
+        args.push(code);
+      }
+      const result = yield this.exec("pair", args);
+      return !!result;
+    });
+  }
 };
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   Adb,
   AdbClient,
   DeviceClient,
+  checkAdbExists,
+  downloadAdb,
   parseProperty
 });
